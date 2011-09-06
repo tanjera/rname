@@ -2,12 +2,14 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" ctype="Workspace" />
   <MonoDevelop.Ide.Workbench ActiveDocument="Rname.cs" ctype="Workbench">
     <Files>
-      <File FileName="Rname.cs" Line="75" Column="5" />
+      <File FileName="Rname.cs" Line="167" Column="65" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">
         <State expanded="True">
-          <Node name="rname" expanded="True" selected="True" />
+          <Node name="rname" expanded="True">
+            <Node name="Rname.cs" selected="True" />
+          </Node>
         </State>
       </Pad>
       <Pad Id="ClassPad">
