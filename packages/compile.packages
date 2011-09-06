@@ -1,0 +1,10 @@
+#!/bin/sh
+
+PKGNAME=rname
+
+if [ $1 > /dev/null ]; then
+	fakeroot dpkg-deb --build debian "$PKGNAME"-"$1".deb
+else
+	echo "Usage: ./compile.packages major.minor[.build[.revision]]_arch"
+	echo "For example: ./compile.packages 1.1.0_i386"
+fi
