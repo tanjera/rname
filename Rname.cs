@@ -11,11 +11,20 @@ namespace rname
 		bool flgVerbose = false, 
 			flgRecurse = false,
 			flgFiles = true,
-			flgDirectory = false;
+			flgDirectory = false,
+			flgFirst = false,
+			flgLast = false,
+			flgTrim = false;
 		
-		List<string> listFiles = new List<string>(),
-			listArgs = new List<string>();
+		int cntFirst = 1,
+			cntLast = 1;
 		
+		List<string> listArgs = new List<string>();
+		
+		enmCase toCase = enmCase.None;
+		
+		enum enmCase
+		{ None, Upper, Lower, Title }
 		
 		public static void Main (string[] args)
 		{
@@ -26,31 +35,40 @@ namespace rname
 		
 		public void Run()
 		{
+			bool processedFlags = false;
+			
 			if (listArgs.Count == 0)
 				showSyntax();
 			
-			while (listArgs[0].StartsWith("-"))
+			for ( ; (listArgs.Count > 0) && (listArgs[0].StartsWith("-")) ; listArgs.RemoveAt(0))
 			{
 				if (listArgs[0].StartsWith("--"))
 				{
 					listArgs[0] = listArgs[0].Remove(0, 2);
 					
-					switch (listArgs[0].ToLower())
+					switch (listArgs[0])
 					{
 						default: break;
 						case "verbose": flgVerbose = true; break;
 						case "recurse": flgRecurse = true; break;
 						case "directory": flgDirectory = true; break;
 						case "nofiles": flgFiles = false; break;
+						case "first": flgFirst = true; break;
+						case "last": flgLast = true; break;
+						case "trim": flgTrim = true; break;
+						case "upper": toCase = enmCase.Upper; break;
+						case "lower": toCase = enmCase.Lower; break;
+						case "title": toCase = enmCase.Title; break;
 						case "help": showHelp(); break;
 					}
 				}
-				else if (listArgs[0].StartsWith("-"))
+				else if (!processedFlags && listArgs[0].StartsWith("-"))
 				{
+					processedFlags = true;
+					
 					listArgs[0] = listArgs[0].Remove(0, 1);
 					
-					while (listArgs[0].Length > 0)
-					{
+					for ( ; listArgs[0].Length > 0 ; listArgs[0] = listArgs[0].Remove(0, 1))
 						switch (listArgs[0][0])
 						{
 							default: break;
@@ -58,14 +76,32 @@ namespace rname
 							case 'r': flgRecurse = true; break;
 							case 'd': flgDirectory = true; break;
 							case 'D': flgDirectory = true; flgFiles = false; break;
+							case 'U': toCase = enmCase.Upper; break;
+							case 'L': toCase = enmCase.Lower; break;
+							case 'T': toCase = enmCase.Title; break;	
+							case 't': flgTrim = true; break;
 							case 'h': showHelp(); break;
+							
+							case 'f': flgFirst = true;
+								if ((listArgs[0].Length > 1) && (evalInt(listArgs[0].Substring(1, 1)) > -1))
+								{
+									for (int i = 1, j = 0; (listArgs[0].Length > i) && ((j = evalInt(listArgs[0].Substring(1, i))) > -1); i++)
+										cntFirst = j; 
+									listArgs[0] = listArgs[0].Remove(0, cntFirst.ToString().Length);
+								}
+								break;
+							case 'l': flgLast = true; 
+								if ((listArgs[0].Length > 1) && (evalInt(listArgs[0].Substring(1, 1)) > -1))
+								{
+									for (int i = 1, j = 0; (listArgs[0].Length > i) && ((j = evalInt(listArgs[0].Substring(1, i))) > -1); i++)
+										cntLast = j; 
+									listArgs[0] = listArgs[0].Remove(0, cntLast.ToString().Length);
+								}
+								break;
 						}
-						
-						listArgs[0] = listArgs[0].Remove(0, 1);
-					}
 				}
-				
-				listArgs.RemoveAt(0);
+				else if (processedFlags)
+					break;
 			}
 			
 			if (listArgs.Count < 3)
@@ -73,13 +109,22 @@ namespace rname
 				Console.WriteLine("Error: Not enough arguments provided. Must include at least three arguments");
 				Environment.Exit(0);
 			}
+				
+			strOld = listArgs[0]; 
+			strNew = listArgs[1];
 			
-			strOld = listArgs[0]; strNew = listArgs[1];
 			for (int i = 2; i < listArgs.Count; i++)
-				listFiles.Add(listArgs[i]);
+				fileTouch(listArgs[i]);
+		}
+		
+		public int evalInt(string incString)
+		{
+			int tOut;
+				
+			if (int.TryParse(incString, out tOut))
+				return tOut;
 			
-			foreach (string eachFile in listFiles)
-				fileTouch(eachFile);
+			return -1;
 		}
 		
 		public void fileTouch(string incFile)
@@ -100,73 +145,180 @@ namespace rname
 				if (flgDirectory)
 					dirRename (new DirectoryInfo(incFile));
 			}
-						
 		}
 		
 		public void fileRename(FileInfo incFile)
 		{
-			if (incFile.Name.Contains(strOld))
-			{
-				string newFile = Path.Combine(incFile.Directory.FullName, incFile.Name.Replace(strOld, strNew));
+			string newFile = incFile.Name,
+				oldFile = incFile.FullName;
+			
+			if (flgFirst || flgLast)
+				parseEnds(ref newFile);
+			else
+				newFile = newFile.Replace(strOld, strNew);
+			
+			parseTrim(ref newFile);
+			parseCase(ref newFile);
+			
+			newFile = Path.Combine(incFile.Directory.FullName, newFile);
 				
-				if (!File.Exists(newFile))
-					try 
-				    {
-						string oldFile = incFile.FullName;
-						incFile.MoveTo(newFile);
-					
-						if (flgVerbose)
-							Console.WriteLine(String.Format("{0} -> {1}", oldFile, newFile));
-					}
-					catch { Console.WriteLine(String.Format("Error: unable to rename, check permissions: {0}", incFile.FullName)); }
-				else
-					Console.WriteLine(String.Format("Error: file already exists: {0}", 
-						Path.Combine(incFile.Directory.FullName, newFile)));
-			}
+			if (newFile == oldFile)
+				return;
+			
+			if (!File.Exists(newFile))
+				try 
+			    {
+					incFile.MoveTo(newFile);
+				
+					if (flgVerbose)
+						Console.WriteLine(String.Format("{0} -> {1}", oldFile, newFile));
+				}
+				catch { Console.WriteLine(String.Format("Error: unable to rename, check permissions: {0}", incFile.FullName)); }
+			else
+				Console.WriteLine(String.Format("Error: file already exists: {0}", 
+					Path.Combine(incFile.Directory.FullName, newFile)));
 		}
 		
 		public void dirRename(DirectoryInfo incDir)
 		{
-			if (incDir.Name.Contains(strOld))
-			{
-				string newDir = Path.Combine(incDir.Parent.FullName, incDir.Name.Replace(strOld, strNew));
+			string newDir = incDir.Name,
+				oldDir = incDir.FullName;
+			
+			if (flgFirst || flgLast)
+				parseEnds(ref newDir);
+			else
+				newDir = newDir.Replace(strOld, strNew);
+			
+			parseTrim(ref newDir);
+			parseCase(ref newDir);
+			
+			newDir = Path.Combine(incDir.Parent.FullName, newDir);
+			
+			if (newDir == oldDir)
+				return;
+			
+			if (!Directory.Exists(newDir))
+				try 
+			    {
+					incDir.MoveTo(newDir);
 				
-				if (!Directory.Exists(newDir))
-					try 
-				    {
-						string oldDir = incDir.FullName;
-						incDir.MoveTo(newDir);
+					if (flgVerbose)
+						Console.WriteLine(String.Format("{0} -->> {1}", oldDir, newDir));
+				}
+				catch { Console.WriteLine(String.Format("Error: unable to rename, check permissions: {0}", incDir.FullName)); }
+			else
+				Console.WriteLine(String.Format("Error: directory already exists: {0}", 
+					Path.Combine(incDir.Parent.FullName, newDir)));
+		}
+		
+		public void parseEnds(ref string incString)
+		{
+			if (flgFirst)
+				for (int i = 0; i < cntFirst; i++)
+				{
+					int iPos = incString.IndexOf(strOld);
 					
-						if (flgVerbose)
-							Console.WriteLine(String.Format("{0} -> {1}", oldDir, newDir));
-					}
-					catch { Console.WriteLine(String.Format("Error: unable to rename, check permissions: {0}", incDir.FullName)); }
-				else
-					Console.WriteLine(String.Format("Error: directory already exists: {0}", 
-						Path.Combine(incDir.Parent.FullName, newDir)));
+					if (iPos > -1) 
+						incString = incString.Remove(iPos, strOld.Length).Insert(iPos, strNew);
+					else break;
+				}
+			
+			if (flgLast)
+				for (int i = 0; i < cntLast; i++)
+				{
+					int iPos = incString.LastIndexOf(strOld);
+					
+					if (iPos > -1) 
+						incString = incString.Remove(iPos, strOld.Length).Insert(iPos, strNew);
+					else break;
+				}
+		}
+		
+		public void parseTrim(ref string incString)
+		{
+			if (!flgTrim)
+				return;
+			
+			string outString = "";
+			List<string> splitString = new List<string>(incString.Split(new char[] {' '}));
+			
+			for (int i = 0; i < splitString.Count; i++)
+				if (splitString[i].Length > 0)
+				{
+					outString += splitString[i].Trim();
+					if (i < splitString.Count - 1)
+						outString += " ";
+				}
+			
+			incString = outString.Trim();
+		}
+		
+		public void parseCase (ref string incString)
+		{
+			switch (toCase)
+			{
+				default: return;
+				case enmCase.Upper: incString = caseUpper(incString); break;
+				case enmCase.Lower: incString = caseLower(incString); break;
+				case enmCase.Title: incString = caseTitle(incString); break;
 			}
+		}
+		
+		public string caseUpper(string incString)
+		{ return incString.ToUpper(); }
+		
+		public string caseLower(string incString)
+		{ return incString.ToLower(); }
+		
+		public string caseTitle(string incString)
+		{
+			string outString = "";
+			List<string> splitString = new List<string>(incString.Split(new char[] {' '}));
+			
+			for (int i = 0; i < splitString.Count; i++)
+				if (splitString[i].Length > 0)
+					outString += splitString[i][0].ToString().ToUpper() + splitString[i].Remove(0, 1).ToLower() + " ";
+			
+			return outString.Trim();
 		}
 		
 		public void showSyntax()
 		{
-			Console.WriteLine("Usage: rname [-vrdD] old-expr new-expr [filenames]");
+			Console.WriteLine("Usage: rname [-vrdDULTtfl#] old-expr new-expr [filenames]");
+			Console.WriteLine("       rname [-vrdD]ULTt x x [filenames]");
 			Environment.Exit(0);
 		}
 		
 		public void showHelp()
 		{
-			Console.WriteLine("Usage: rname [-vrdD] old-expr new-expr [filenames]");
+			Console.WriteLine("Usage: rname [-vrdDULTtfl#] old-expr new-expr [filenames]");
+			Console.WriteLine("       rname [-vrdD]ULTt x x [filenames]");
 			Console.WriteLine("Renames part or the whole filename for multiple files.");
 			Console.WriteLine("Portions of file names equaling the old expression (old-expr) are renamed ");
 			Console.WriteLine("to the new expression (new-expr).");
 			Console.WriteLine("");
 			Console.WriteLine("Arguments can include:");
-			Console.WriteLine("    -r, --recurse\t\trecurse through subdirectories");
-			Console.WriteLine("    -v, --verbose\t\tprints additional output on actions");
-			Console.WriteLine("    -d, --directory\t\talso parses and renames directories");
-			Console.WriteLine("        --nofiles\t\texcludes files, to be used with --directories");
-			Console.WriteLine("    -D	\t\t\trenames directories and not files (equal to");
-			Console.WriteLine("       	\t\t\t--directories --nofiles)");
+			Console.WriteLine("    -r, --recurse\trecurse through subdirectories");
+			Console.WriteLine("    -v, --verbose\tprints additional output on actions");
+			Console.WriteLine("    -d, --directory\talso parses and renames directories");
+			Console.WriteLine("        --nofiles\texcludes files, to be used with --directories");
+			Console.WriteLine("    -D	\t\trenames directories and not files (equal to");
+			Console.WriteLine("       	\t\t--directories --nofiles)");
+			Console.WriteLine("    -t, --trim\t\ttrims all extra white space in filename");
+			Console.WriteLine("");
+			Console.WriteLine("Case replacement:");
+			Console.WriteLine("Changes case of words in all files selected, regardless of matching expression");
+			Console.WriteLine("    -U, --upper\t\tconverts all selected files to UPPER case");
+			Console.WriteLine("    -L, --lower\t\tconverts all selected files to lower case");
+			Console.WriteLine("    -T, --title\t\tconverts all selected files to Title case");
+			Console.WriteLine("");
+			Console.WriteLine("Selective replacement:");
+			Console.WriteLine("Defaults to 1 if no value is given, or if the long form switch is used");
+			Console.WriteLine("    -f#, --first\treplace the first # of occurrences");
+			Console.WriteLine("    -l#, --last\t\treplace the last # of occurrence");
+			Console.WriteLine("");
+			Console.WriteLine("Note: To distinguish between arguments and expressions, only one set of short");
+			Console.WriteLine("arguments can be used (ie. correct: -vdtTf2 ; incorrect: -vdt -Tf2");
 			Environment.Exit(0);
 		}
 	}

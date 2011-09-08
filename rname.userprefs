@@ -1,8 +1,8 @@
 ﻿<Properties>
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" ctype="Workspace" />
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" ctype="Workspace" />
   <MonoDevelop.Ide.Workbench ActiveDocument="Rname.cs" ctype="Workbench">
     <Files>
-      <File FileName="Rname.cs" Line="167" Column="65" />
+      <File FileName="Rname.cs" Line="321" Column="90" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">
