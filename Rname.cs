@@ -14,7 +14,9 @@ namespace rname
 			flgDirectory = false,
 			flgFirst = false,
 			flgLast = false,
-			flgTrim = false;
+			flgTrim = false,
+			flgAppend = false,
+			flgExcise = false;
 		
 		int cntFirst = 1,
 			cntLast = 1;
@@ -59,6 +61,8 @@ namespace rname
 						case "upper": toCase = enmCase.Upper; break;
 						case "lower": toCase = enmCase.Lower; break;
 						case "title": toCase = enmCase.Title; break;
+						case "append": flgAppend = true; break;
+						case "excise": flgExcise = true; break;
 						case "help": showHelp(); break;
 					}
 				}
@@ -80,6 +84,8 @@ namespace rname
 							case 'L': toCase = enmCase.Lower; break;
 							case 'T': toCase = enmCase.Title; break;	
 							case 't': flgTrim = true; break;
+							case 'a': flgAppend = true; break;
+							case 'x': flgExcise = true; break;
 							case 'h': showHelp(); break;
 							
 							case 'f': flgFirst = true;
@@ -152,13 +158,7 @@ namespace rname
 			string newFile = incFile.Name,
 				oldFile = incFile.FullName;
 			
-			if (flgFirst || flgLast)
-				parseEnds(ref newFile);
-			else
-				newFile = newFile.Replace(strOld, strNew);
-			
-			parseTrim(ref newFile);
-			parseCase(ref newFile);
+			parseAll(ref newFile);
 			
 			newFile = Path.Combine(incFile.Directory.FullName, newFile);
 				
@@ -184,13 +184,7 @@ namespace rname
 			string newDir = incDir.Name,
 				oldDir = incDir.FullName;
 			
-			if (flgFirst || flgLast)
-				parseEnds(ref newDir);
-			else
-				newDir = newDir.Replace(strOld, strNew);
-			
-			parseTrim(ref newDir);
-			parseCase(ref newDir);
+			parseAll(ref newDir);
 			
 			newDir = Path.Combine(incDir.Parent.FullName, newDir);
 			
@@ -209,6 +203,33 @@ namespace rname
 			else
 				Console.WriteLine(String.Format("Error: directory already exists: {0}", 
 					Path.Combine(incDir.Parent.FullName, newDir)));
+		}
+		
+		public void parseAll(ref string incString)
+		{
+			if (flgAppend)
+				incString = strOld + incString + strNew;
+			else if (flgExcise)
+			{
+				int exBegin = evalInt(strOld), exEnd = evalInt(strNew);
+				
+				if ((exBegin < 0) || (exEnd < 0))
+					Console.WriteLine("Arguments must be integers");
+				else if ((exBegin + exEnd) >= incString.Length)
+					Console.WriteLine(String.Format("Error: not enough letters in filename: {0}", incString));
+				else
+					incString = incString.Remove(incString.Length - exEnd, exEnd).Remove(0, exBegin);
+			}
+			else
+			{
+				if (flgFirst || flgLast)
+					parseEnds(ref incString);
+				else
+					incString = incString.Replace(strOld, strNew);
+			}
+				
+			parseTrim(ref incString);
+			parseCase(ref incString);
 		}
 		
 		public void parseEnds(ref string incString)
@@ -284,14 +305,14 @@ namespace rname
 		
 		public void showSyntax()
 		{
-			Console.WriteLine("Usage: rname [-vrdDULTtfl#] old-expr new-expr [filenames]");
+			Console.WriteLine("Usage: rname [-vrdDULTtaxfl#] old-expr new-expr [filenames]");
 			Console.WriteLine("       rname [-vrdD]ULTt x x [filenames]");
 			Environment.Exit(0);
 		}
 		
 		public void showHelp()
 		{
-			Console.WriteLine("Usage: rname [-vrdDULTtfl#] old-expr new-expr [filenames]");
+			Console.WriteLine("Usage: rname [-vrdDULTtaxfl#] old-expr new-expr [filenames]");
 			Console.WriteLine("       rname [-vrdD]ULTt x x [filenames]");
 			Console.WriteLine("Renames part or the whole filename for multiple files.");
 			Console.WriteLine("Portions of file names equaling the old expression (old-expr) are renamed ");
@@ -305,6 +326,16 @@ namespace rname
 			Console.WriteLine("    -D	\t\trenames directories and not files (equal to");
 			Console.WriteLine("       	\t\t--directories --nofiles)");
 			Console.WriteLine("    -t, --trim\t\ttrims all extra white space in filename");
+			Console.WriteLine("");
+			Console.WriteLine("Append, Excise:");
+			Console.WriteLine("Inserting, appending to, or excising from a filename");
+			Console.WriteLine("    -a, --append\tadds the first expression to the beginning of the");
+			Console.WriteLine("         \t\tfilename, appends second expression to the end of the");
+			Console.WriteLine("         \t\tfilename, \"\" for null");
+			Console.WriteLine("    -x, --excise\tremoves number of characters from beginning and");
+			Console.WriteLine("         \t\tend of the filename, first expression is whole number");
+			Console.WriteLine("         \t\tto remove from beginning, second expression is number");
+			Console.WriteLine("         \t\tto remove from end (ie. rname -x 2 0 *)");
 			Console.WriteLine("");
 			Console.WriteLine("Case replacement:");
 			Console.WriteLine("Changes case of words in all files selected, regardless of matching expression");

@@ -1,14 +1,15 @@
 ﻿<Properties>
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" ctype="Workspace" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="Rname.cs" ctype="Workbench">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" ctype="Workspace" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="AssemblyInfo.cs" ctype="Workbench">
     <Files>
-      <File FileName="Rname.cs" Line="321" Column="90" />
+      <File FileName="Rname.cs" Line="221" Column="59" />
+      <File FileName="AssemblyInfo.cs" Line="20" Column="34" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">
         <State expanded="True">
           <Node name="rname" expanded="True">
-            <Node name="Rname.cs" selected="True" />
+            <Node name="AssemblyInfo.cs" selected="True" />
           </Node>
         </State>
       </Pad>
